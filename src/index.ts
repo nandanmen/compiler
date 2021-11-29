@@ -28,7 +28,7 @@ assert.deepEqual(tokens, [
 ]);
 
 const ast = parse(tokens);
-console.log("ast: ", ast);
+console.dir(ast, { depth: null });
 
 assert.deepEqual(ast, {
   type: "Program",
