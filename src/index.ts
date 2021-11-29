@@ -1,27 +1,78 @@
 import { strict as assert } from "assert";
 
-import { tokenize } from "./tokenizer";
+import { tokenize, token } from "./tokenizer";
+import { parse } from "./parser";
 
 const input = `function hello(message) {
   console.log(message);
 }`;
 
-const out = tokenize(input);
-console.log(out);
+const tokens = tokenize(input);
+console.log("Tokens: ", tokens);
 
-assert.deepEqual(out, [
-  "function",
-  "hello",
-  "(",
-  "message",
-  ")",
-  "{",
-  "console",
-  ".",
-  "log",
-  "(",
-  "message",
-  ")",
-  ";",
-  "}",
+assert.deepEqual(tokens, [
+  token.keyword("function"),
+  token.identifier("hello"),
+  token.leftParen(),
+  token.identifier("message"),
+  token.rightParen(),
+  token.leftCurly(),
+  token.identifier("console"),
+  token.dot(),
+  token.identifier("log"),
+  token.leftParen(),
+  token.identifier("message"),
+  token.rightParen(),
+  token.semicolon(),
+  token.rightCurly(),
 ]);
+
+const ast = parse(tokens);
+console.log("ast: ", ast);
+
+assert.deepEqual(ast, {
+  type: "Program",
+  body: [
+    {
+      type: "FunctionDeclaration",
+      id: {
+        type: "Identifier",
+        name: "hello",
+      },
+      params: [
+        {
+          type: "Identifier",
+          name: "message",
+        },
+      ],
+      body: {
+        type: "BlockStatement",
+        body: [
+          {
+            type: "ExpressionStatement",
+            expression: {
+              type: "CallExpression",
+              callee: {
+                type: "MemberExpression",
+                object: {
+                  type: "Identifier",
+                  name: "console",
+                },
+                property: {
+                  type: "Identifier",
+                  name: "log",
+                },
+              },
+              arguments: [
+                {
+                  type: "Identifier",
+                  name: "message",
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+});
