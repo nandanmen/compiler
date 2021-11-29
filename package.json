@@ -1,0 +1,14 @@
+{
+  "name": "compiler-for-front-end-devs",
+  "version": "1.0.0",
+  "main": "index.js",
+  "author": "Nanda Syahrasyad",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^16.11.10",
+    "typescript": "^4.5.2"
+  },
+  "scripts": {
+    "start": "yarn tsc && node dist/index.js"
+  }
+}
