@@ -102,10 +102,43 @@ function parseProgram(tokens: Token[]): Program {
   }
 
   function blockStatement(): BlockStatement {
-    return {
+    const node: BlockStatement = {
       type: "BlockStatement",
       body: [],
     };
+
+    /**
+     * A block statement ends in a right curly bracket, so we stop
+     * parsing statements once we hit a right curly token.
+     */
+    while (tokens[current] && tokens[current].type !== TokenType.RightCurly) {
+      node.body.push(statement());
+    }
+
+    /**
+     * If we run out of tokens, then we have a block statement that wasn't
+     * terminated. In this case it's a syntax error.
+     */
+    if (!tokens[current]) {
+      throw new SyntaxError(`Unexpected end of file. Expected "}"`);
+    }
+
+    return node;
+  }
+
+  function statement(): Statement {
+    const currentToken = tokens[current];
+
+    switch (currentToken.type) {
+      case TokenType.Keyword: {
+        if (currentToken.name === "function") {
+          return functionDeclaration();
+        }
+      }
+      default: {
+        throw new SyntaxError(`Unexpected token: ${currentToken.type}`);
+      }
+    }
   }
 
   function identifier(token: Token): Identifier {
@@ -138,21 +171,8 @@ function parseProgram(tokens: Token[]): Program {
     return tokens[current + 1];
   }
 
-  // Loop through all tokens
-
-  const currentToken = tokens[current];
-
-  // TODO: Support multiple statements in a program
-  switch (currentToken.type) {
-    case TokenType.Keyword: {
-      if (currentToken.name === "function") {
-        programNode.body.push(functionDeclaration());
-        break;
-      }
-    }
-    default: {
-      throw new SyntaxError(`Unexpected token: ${currentToken.type}`);
-    }
+  while (tokens[current]) {
+    programNode.body.push(statement());
   }
 
   return programNode;
