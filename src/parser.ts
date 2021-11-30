@@ -70,108 +70,200 @@ function parseProgram(tokens: Token[]): Program {
 
   let current = 0;
 
-  // Builders
+  // -- Util functions --
 
-  function functionDeclaration(): FunctionDeclaration {
-    /**
-     * Identifiers are required in function declarations; you can't declare
-     * an anonymous function in JS
-     */
-    const nextToken = assertNext(TokenType.Identifier);
-    const id = identifier(nextToken);
-
-    assertNext(TokenType.LeftParen);
-
-    /**
-     * Currently we only support one IDENTIFEIR param in functions
-     * TODO: Support multiple IDENTIFIER params
-     * TODO: Support other ways to declare params (destructuring)
-     */
-    const paramToken = assertNext(TokenType.Identifier);
-    const param = identifier(paramToken);
-
-    assertNext(TokenType.RightParen);
-    assertType(peekNext(), TokenType.LeftCurly);
-
-    return {
-      type: "FunctionDeclaration",
-      id,
-      params: [param],
-      body: blockStatement(),
-    };
-  }
-
-  function blockStatement(): BlockStatement {
-    const node: BlockStatement = {
-      type: "BlockStatement",
-      body: [],
-    };
-
-    /**
-     * A block statement ends in a right curly bracket, so we stop
-     * parsing statements once we hit a right curly token.
-     */
-    while (tokens[current] && tokens[current].type !== TokenType.RightCurly) {
-      node.body.push(statement());
-    }
-
-    /**
-     * If we run out of tokens, then we have a block statement that wasn't
-     * terminated. In this case it's a syntax error.
-     */
-    if (!tokens[current]) {
-      throw new SyntaxError(`Unexpected end of file. Expected "}"`);
-    }
-
-    return node;
-  }
-
-  function statement(): Statement {
-    const currentToken = tokens[current];
-
-    switch (currentToken.type) {
-      case TokenType.Keyword: {
-        if (currentToken.name === "function") {
-          return functionDeclaration();
-        }
-      }
-      default: {
-        throw new SyntaxError(`Unexpected token: ${currentToken.type}`);
+  /**
+   * Given a list of types, check if the current token matches
+   * one of the types and if so, consumes it. Otherwise, returns
+   * false.
+   */
+  function match(...types: TokenType[]): boolean {
+    for (const type of types) {
+      if (check(type)) {
+        advance();
+        return true;
       }
     }
+    return false;
   }
 
-  function identifier(token: Token): Identifier {
-    return {
-      type: "Identifier",
-      name: token.name!,
-    };
+  /**
+   * Checks if we've consumed all the tokens
+   */
+  function isAtEnd() {
+    return current >= tokens.length;
   }
 
-  // Utils
-
-  function assertNext(type: TokenType) {
-    const next = getNext();
-    assertType(next, type);
-    return next;
+  /**
+   * Returns true if the current token is of the given type
+   */
+  function check(type: TokenType) {
+    if (isAtEnd()) return false;
+    return peek().type === type;
   }
 
-  function assertType(token: Token, type: TokenType) {
-    if (token.type !== type) {
-      throw new SyntaxError(`Unexpected token: ${token.type}`);
+  function checkNext(type: TokenType) {
+    if (isAtEnd()) return false;
+    const next = peekNext();
+    if (next) {
+      return next.type === type;
     }
+    return false;
   }
 
-  function getNext() {
-    // ++_ means increment first then return
-    return tokens[++current];
+  /**
+   * Returns the current token without consuming it
+   */
+  function peek() {
+    return tokens[current];
   }
 
   function peekNext() {
     return tokens[current + 1];
   }
 
-  while (tokens[current]) {
+  /**
+   * Consumes and returns the current token
+   */
+  function advance() {
+    if (!isAtEnd()) current++;
+    return previous();
+  }
+
+  /**
+   * Returns the previous token
+   */
+  function previous() {
+    return tokens[current - 1];
+  }
+
+  function consume(type: TokenType) {
+    if (check(type)) return advance();
+    throw new SyntaxError(
+      `Unexpected token: Expected ${type}, found ${previous().type}`
+    );
+  }
+
+  function consumeUntil(type: TokenType, consume: () => void) {
+    while (!isAtEnd() && !match(type)) {
+      consume();
+    }
+
+    /**
+     * Throw a syntax error if we reached the end of input and didn't
+     * find the type we were looking for.
+     */
+    if (isAtEnd() && previous().type !== type) {
+      throw new SyntaxError(`Unexpected end of file. Expected ${type}`);
+    }
+  }
+
+  // -- Builders --
+
+  function statement(): Statement {
+    if (check(TokenType.Keyword)) {
+      if (peek().name === "function") {
+        return declaration();
+      }
+    } else if (check(TokenType.LeftCurly)) {
+      return blockStatement();
+    }
+    return expressionStatement();
+  }
+
+  function declaration(): Declaration {
+    return functionDeclaration();
+  }
+
+  function functionDeclaration(): FunctionDeclaration {
+    consume(TokenType.Keyword);
+    const id = identifier();
+    consume(TokenType.LeftParen);
+    const param = identifier();
+    consume(TokenType.RightParen);
+    const body = blockStatement();
+    return {
+      type: "FunctionDeclaration",
+      id,
+      params: [param],
+      body,
+    };
+  }
+
+  function blockStatement(): BlockStatement {
+    consume(TokenType.LeftCurly);
+
+    const statements: Statement[] = [];
+
+    consumeUntil(TokenType.RightCurly, () => {
+      statements.push(statement());
+    });
+
+    return {
+      type: "BlockStatement",
+      body: statements,
+    };
+  }
+
+  function expressionStatement(): ExpressionStatement {
+    const expr = expression();
+    consume(TokenType.Semicolon);
+    return {
+      type: "ExpressionStatement",
+      expression: expr,
+    };
+  }
+
+  function expression(): Expression {
+    if (checkNext(TokenType.LeftParen)) {
+      return callExpression();
+    }
+    if (checkNext(TokenType.Dot)) {
+      return memberExpression();
+    }
+    return identifier();
+  }
+
+  function callExpression(): CallExpression {
+    const callee = expression();
+
+    consume(TokenType.LeftParen);
+    const args: Expression[] = [];
+
+    consumeUntil(TokenType.RightParen, () => {
+      args.push(expression());
+    });
+
+    return {
+      type: "CallExpression",
+      arguments: args,
+      callee,
+    };
+  }
+
+  function memberExpression(): MemberExpression {
+    const object = expression();
+    consume(TokenType.Dot);
+    const property = identifier();
+    return {
+      type: "MemberExpression",
+      object,
+      property,
+      computed: false,
+    };
+  }
+
+  function identifier(): Identifier {
+    const { name } = consume(TokenType.Identifier);
+    return {
+      type: "Identifier",
+      name: name!,
+    };
+  }
+
+  // -- Program --
+
+  while (!isAtEnd()) {
     programNode.body.push(statement());
   }
 

@@ -62,6 +62,7 @@ assert.deepEqual(ast, {
                   type: "Identifier",
                   name: "log",
                 },
+                computed: false,
               },
               arguments: [
                 {
