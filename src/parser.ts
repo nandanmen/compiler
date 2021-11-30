@@ -102,24 +102,11 @@ function parseProgram(tokens: Token[]): Program {
     return peek().type === type;
   }
 
-  function checkNext(type: TokenType) {
-    if (isAtEnd()) return false;
-    const next = peekNext();
-    if (next) {
-      return next.type === type;
-    }
-    return false;
-  }
-
   /**
    * Returns the current token without consuming it
    */
   function peek() {
     return tokens[current];
-  }
-
-  function peekNext() {
-    return tokens[current + 1];
   }
 
   /**
