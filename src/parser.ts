@@ -124,6 +124,10 @@ function parseProgram(tokens: Token[]): Program {
     return tokens[current - 1];
   }
 
+  /**
+   * Consumes and returns the current token if it matches the provided type.
+   * Throws a syntax error if the token doesn't match the type.
+   */
   function consume(type: TokenType) {
     if (check(type)) return advance();
     throw new SyntaxError(
@@ -131,6 +135,10 @@ function parseProgram(tokens: Token[]): Program {
     );
   }
 
+  /**
+   * Repeatedly calls `consume` until `current` points to a token of the given
+   * type. Assumes `consume` updates the current token pointer.
+   */
   function consumeUntil(type: TokenType, consume: () => void) {
     while (!isAtEnd() && !match(type)) {
       consume();
