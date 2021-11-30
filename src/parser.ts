@@ -215,19 +215,22 @@ function parseProgram(tokens: Token[]): Program {
   }
 
   function expression(): Expression {
-    if (checkNext(TokenType.LeftParen)) {
-      return callExpression();
+    let expr: Expression = identifier();
+
+    while (true) {
+      if (match(TokenType.Dot)) {
+        expr = memberExpression(expr);
+      } else if (match(TokenType.LeftParen)) {
+        expr = callExpression(expr);
+      } else {
+        break;
+      }
     }
-    if (checkNext(TokenType.Dot)) {
-      return memberExpression();
-    }
-    return identifier();
+
+    return expr;
   }
 
-  function callExpression(): CallExpression {
-    const callee = expression();
-
-    consume(TokenType.LeftParen);
+  function callExpression(callee: Expression): CallExpression {
     const args: Expression[] = [];
 
     consumeUntil(TokenType.RightParen, () => {
@@ -241,9 +244,7 @@ function parseProgram(tokens: Token[]): Program {
     };
   }
 
-  function memberExpression(): MemberExpression {
-    const object = expression();
-    consume(TokenType.Dot);
+  function memberExpression(object: Expression): MemberExpression {
     const property = identifier();
     return {
       type: "MemberExpression",
