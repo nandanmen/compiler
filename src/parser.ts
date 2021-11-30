@@ -1,42 +1,52 @@
 import { Token, TokenType } from "./tokenizer";
 
-interface Node {
+export enum NodeType {
+  Program = "Program",
+  FunctionDeclaration = "FunctionDeclaration",
+  Identifier = "Identifier",
+  BlockStatement = "BlockStatement",
+  ExpressionStatement = "ExpressionStatement",
+  CallExpression = "CallExpression",
+  MemberExpression = "MemberExpression",
+}
+
+export interface Node {
   type: string;
 }
 
-interface Program extends Node {
-  type: "Program";
+export interface Program extends Node {
+  type: NodeType.Program;
   body: Statement[];
 }
 
-interface FunctionDeclaration extends Function, Declaration {
-  type: "FunctionDeclaration";
+export interface FunctionDeclaration extends Function, Declaration {
+  type: NodeType.FunctionDeclaration;
   id: Identifier;
 }
 
-interface Identifier extends Node {
-  type: "Identifier";
+export interface Identifier extends Node {
+  type: NodeType.Identifier;
   name: string;
 }
 
-interface BlockStatement extends Statement {
-  type: "BlockStatement";
+export interface BlockStatement extends Statement {
+  type: NodeType.BlockStatement;
   body: Statement[];
 }
 
-interface ExpressionStatement extends Statement {
-  type: "ExpressionStatement";
+export interface ExpressionStatement extends Statement {
+  type: NodeType.ExpressionStatement;
   expression: Expression;
 }
 
-interface CallExpression extends Expression {
-  type: "CallExpression";
+export interface CallExpression extends Expression {
+  type: NodeType.CallExpression;
   callee: Expression;
   arguments: Expression[];
 }
 
-interface MemberExpression extends Expression, Pattern {
-  type: "MemberExpression";
+export interface MemberExpression extends Expression, Pattern {
+  type: NodeType.MemberExpression;
   object: Expression;
   property: Expression;
   computed: boolean;
@@ -64,7 +74,7 @@ export function parse(tokens: Token[]): Program {
 
 function parseProgram(tokens: Token[]): Program {
   const programNode: Program = {
-    type: "Program",
+    type: NodeType.Program,
     body: [],
   };
 
@@ -178,7 +188,7 @@ function parseProgram(tokens: Token[]): Program {
     consume(TokenType.RightParen);
     const body = blockStatement();
     return {
-      type: "FunctionDeclaration",
+      type: NodeType.FunctionDeclaration,
       id,
       params: [param],
       body,
@@ -195,7 +205,7 @@ function parseProgram(tokens: Token[]): Program {
     });
 
     return {
-      type: "BlockStatement",
+      type: NodeType.BlockStatement,
       body: statements,
     };
   }
@@ -204,7 +214,7 @@ function parseProgram(tokens: Token[]): Program {
     const expr = expression();
     consume(TokenType.Semicolon);
     return {
-      type: "ExpressionStatement",
+      type: NodeType.ExpressionStatement,
       expression: expr,
     };
   }
@@ -233,7 +243,7 @@ function parseProgram(tokens: Token[]): Program {
     });
 
     return {
-      type: "CallExpression",
+      type: NodeType.CallExpression,
       arguments: args,
       callee,
     };
@@ -242,7 +252,7 @@ function parseProgram(tokens: Token[]): Program {
   function memberExpression(object: Expression): MemberExpression {
     const property = identifier();
     return {
-      type: "MemberExpression",
+      type: NodeType.MemberExpression,
       object,
       property,
       computed: false,
@@ -252,7 +262,7 @@ function parseProgram(tokens: Token[]): Program {
   function identifier(): Identifier {
     const { name } = consume(TokenType.Identifier);
     return {
-      type: "Identifier",
+      type: NodeType.Identifier,
       name: name!,
     };
   }
