@@ -45,14 +45,14 @@ export function tokenize(input: string): Token[] {
 // --
 
 export enum TokenType {
-  Keyword,
-  Identifier,
-  LeftParen,
-  RightParen,
-  LeftCurly,
-  RightCurly,
-  Dot,
-  Semicolon,
+  Keyword = "Keyword",
+  Identifier = "Identifier",
+  LeftParen = "LeftParen",
+  RightParen = "RightParen",
+  LeftCurly = "LeftCurly",
+  RightCurly = "RightCurly",
+  Dot = "Dot",
+  Semicolon = "Semicolon",
 }
 
 export type Token = {

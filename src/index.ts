@@ -2,13 +2,20 @@ import { strict as assert } from "assert";
 
 import { tokenize, token } from "./tokenizer";
 import { parse } from "./parser";
+import type { FunctionDeclaration } from "./parser";
+import { traverse } from "./traverse";
+import { generate } from "./generate";
 
 const input = `function hello(message) {
   console.log(message);
 }`;
 
+console.log("Input:");
+console.log(input);
+
 const tokens = tokenize(input);
-console.log("Tokens: ", tokens);
+console.log("Tokens:");
+console.log(tokens);
 
 assert.deepEqual(tokens, [
   token.keyword("function"),
@@ -28,7 +35,8 @@ assert.deepEqual(tokens, [
 ]);
 
 const ast = parse(tokens);
-console.log("ast: ", ast);
+console.log("Initial AST:");
+console.dir(ast, { depth: null });
 
 assert.deepEqual(ast, {
   type: "Program",
@@ -62,6 +70,7 @@ assert.deepEqual(ast, {
                   type: "Identifier",
                   name: "log",
                 },
+                computed: false,
               },
               arguments: [
                 {
@@ -76,3 +85,74 @@ assert.deepEqual(ast, {
     },
   ],
 });
+
+traverse(ast, {
+  FunctionDeclaration: (node: FunctionDeclaration) => {
+    if (node.id.name === "hello") {
+      node.id.name = "print";
+    }
+  },
+});
+
+console.log("Transformed AST:");
+console.dir(ast, { depth: null });
+
+assert.deepEqual(ast, {
+  type: "Program",
+  body: [
+    {
+      type: "FunctionDeclaration",
+      id: {
+        type: "Identifier",
+        name: "print",
+      },
+      params: [
+        {
+          type: "Identifier",
+          name: "message",
+        },
+      ],
+      body: {
+        type: "BlockStatement",
+        body: [
+          {
+            type: "ExpressionStatement",
+            expression: {
+              type: "CallExpression",
+              callee: {
+                type: "MemberExpression",
+                object: {
+                  type: "Identifier",
+                  name: "console",
+                },
+                property: {
+                  type: "Identifier",
+                  name: "log",
+                },
+                computed: false,
+              },
+              arguments: [
+                {
+                  type: "Identifier",
+                  name: "message",
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+});
+
+const output = generate(ast);
+
+console.log("Output:");
+console.log(output);
+
+assert.equal(
+  output,
+  `function print(message) {
+  console.log(message);
+}`
+);
