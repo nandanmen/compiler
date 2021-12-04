@@ -520,6 +520,286 @@ function expressionStatement() {
 }
 ```
 
-Let's jump into that `expression()` function call.
+Let's jump into that `expression()` function call. What token do we expect when trying to parse an expression?
 
+I... wasn't sure, so I thought I would keep it simple and only support those expressions that exist in the input, which are *call* expressions and *member* expressions. So how do we differentiate between the two?
 
+Here's a call expression:
+
+```js
+hello()
+```
+
+Here's a member expression:
+
+```js
+hello.world
+```
+
+Here's a member expression *inside a call expression*:
+
+```js
+hello.world()
+```
+
+And here's a call expression *inside a member expression*:
+
+```js
+hello().world
+```
+
+What differences do you notice? Well, a call expression always ends with a parentheses pair, while a member expression always ends with a dot and an identifier token (technically there's also *computed* member expressions, but we won't get to that here).
+
+While we can probably identify the two pretty easily with our eyes, a parser has a much harder time doing so. That's because the tokens that make these expressions a call expression or member expression can happen anywhere down the line:
+
+```
+[some] [super] [long] [expression] ... [.] [call] // aha! a member expression... but where were we?
+```
+
+While parsing the start of this sequence, there's no way for the parser to know that it's part of a member expression until it hits the dot token.
+
+At this point I got pretty lost so I decided to scrap the parser altogether and start from scratch. This time I wanted to start with a more formal definition of the language.
+
+Something I learned in my last year of my computer science degree was the EBNF notation - a fancy notation for describing programming languages. I'm going to be honest - I have no idea what the correct syntax is. But it was nevertheless a useful way of describing what is and isn't correct language syntax.
+
+I went ahead and tried to make a small grammar for JavaScript, just enough to encompass my hello world input. Here's what I made:
+
+```
+// A program is a series of statements
+Program -> Statement*
+
+// A statement can either be an expression statement, function declaration,
+// or a block statement (I got block statement from the AST)
+Statement -> ExpressionStatement | FunctionDeclaration | BlockStatement
+
+// An expression statement is an expression followed by a semicolon
+// (I enforced the semicolon here because it's more complicated otherwise)
+ExpressionStatement -> Expression ";"
+
+FunctionDeclaration -> "function" Identifier "(" Identifier* ")" BlockStatement
+
+BlockStatement -> "{" Statement* "}"
+
+Identifier -> STRING
+
+Expression -> CallExpression | MemberExpression | Identifier;
+
+// e.g. hello(message)
+CallExpression -> Expression "(" Identifier* ")"
+
+// e.g. hello.world
+MemberExpression -> Expression "." Identifier
+```
+
+Let's focus on the last three definitions there - `Expression`, `CallExpression`, and `MemberExpression`.
+
+How would we decompose the following code using the above grammar?
+
+```js
+console.log(message)
+```
+
+First and foremost it's a `CallExpression`, because it ends with the parenthesis pair:
+
+```
+console.log(message) -> CallExpression
+console.log -> Expression
+(message) -> Makes it a call expression
+```
+
+We can break down the `console.log` further:
+
+```
+console.log -> MemberExpression
+console -> Expression -> Identifier
+log -> Identifier
+```
+
+Easy enough, right? So how would we translate this into code?
+
+The nice thing about having the formal grammar is it lends itself really well into a recursive parser implementation. Take the following snippet for example:
+
+```
+Statement -> ExpressionStatement | FunctionDeclaration | BlockStatement
+
+ExpressionStatement -> Expression ";"
+
+FunctionDeclaration -> "function" Identifier "(" Identifier* ")" BlockStatement
+
+BlockStatement -> "{" Statement* "}"
+```
+
+We start with a function to parse a statement:
+
+```ts
+function statement() {
+  // TODO
+}
+```
+
+Looking at the grammar, we know that a statement can either be an expression statement, a function declaration, or a block statement. Which _tokens_ lets us determine which of these three options we should parse?
+
+Well, if the token is a keyword with the type `function`, then we know we should parse a function declaration. Likewise, if the token is a left curly bracket, then we should parse a block statement. If it's neither of them, then we should try parsing an expression statement:
+
+```ts
+function statement() {
+  if (check(TokenType.Keyword)) {
+    if (peek().name === "function") {
+      return declaration();
+    }
+  } else if (check(TokenType.LeftCurly)) {
+    return blockStatement();
+  }
+  return expressionStatement();
+}
+```
+
+Notice how nicely this matches with our grammar?
+
+Let's dive a bit deeper into the `expressionStatement()` call. Here's the grammar for an expression statement:
+
+```
+ExpressionStatement -> Expression ";"
+```
+
+In code, this would look like:
+
+```ts
+function expressionStatement() {
+  const expression = expression();
+  consume(TokenType.Semicolon);
+
+  return {
+    type: "ExpressionStatement",
+    expression,
+  }
+}
+```
+
+Nice! Going another level, let's take a look at the `expression()` call. Here's the grammar for an Expression:
+
+```
+Expression -> CallExpression | MemberExpression | Identifier;
+
+// e.g. hello(message)
+CallExpression -> Expression "(" Identifier* ")"
+
+// e.g. hello.world
+MemberExpression -> Expression "." Identifier
+```
+
+When I tried translating this to code, I was getting confused. Unlike the statement definition that we had before, there's no token that lets us immediately identify a CallExpression from a MemberExpression.
+
+In the grammar, both of these nodes start with an expression. So I figured to check if the *next* token is either a dot or a left paren. If it's a dot, then I would parse a member expression; if it's a left paren, I would parse a call expression.
+
+```ts
+function expression() {
+  if (checkNext(TokenType.LeftParen)) {
+    return callExpression();
+  }
+  if (checkNext(TokenType.Dot)) {
+    return memberExpression();
+  }
+  return identifier();
+}
+```
+
+Then my `callExpression` and `memberExpression` functions would look something like this:
+
+```ts
+function callExpression() {
+  const callee = expression();
+  // other stuff
+}
+
+function memberExpression() {
+  const object = expression();
+  // other stuff
+}
+```
+
+Indeed this doesn't work because there's an infinite loop between `expression` and `callExpression` - expression calls callExpression, and callExpression calls expression back without doing anything to the tokens.
+
+At this point, I turned to the Crafting Interpreters book to see if it describes a solution for this. Lucky for me, it does!
+
+The main problem lied in the grammar definition, specifically the definition of `CallExpression` and `MemberExpression`:
+
+```
+Expression -> CallExpression | MemberExpression | Identifier;
+
+// e.g. hello(message)
+CallExpression -> Expression "(" Identifier* ")"
+
+// e.g. hello.world
+MemberExpression -> Expression "." Identifier
+```
+
+You see, both of these definitions are *left-recursive*, meaning if you repeatedly unwrap `Expression` it would grow leftward:
+
+```
+CallExpression -> ... CallExpression CallExpression "(" Identifier* ")"
+                      <-- grows to the left
+```
+
+In terms of the grammar on its own this is perfectly ok - after all, the following code is a completely valid `CallExpression`:
+
+```js
+hello()()()()()
+```
+
+But in terms of the parser, defining the grammar this way makes things difficult because the parser consumes tokens from left to right.
+
+The fix was to flip the grammar definition around. Instead of defining a `CallExpression` as an `Expression` plus some parentheses, we define it as an *identifier* plus an *arbitrary number* of parentheses:
+
+```
+CallExpression -> Identifier ("(" Identifier* ")")*
+```
+
+In the code, we can now do something like:
+
+```ts
+function callExpression() {
+  let expr = identifier()
+
+  /**
+   * If we find a left paren, we want to wrap the current expression
+   * into a call expression. This lets us nest call expressions like
+   * if we have `hello()()()`.
+   */ 
+  while (match(TokenType.LeftParen)) {
+    expr = finishCallExpression(expr)
+  }
+
+  return expr
+}
+
+function finishCallExpression(callee: Expression) {
+  const args: Expression[] = [];
+
+  /**
+   * consumeUntil is a helper function that repeatedly advances
+   * the cursor until it hits a token of the given type.
+   */ 
+  consumeUntil(TokenType.RightParen, () => {
+    args.push(expression());
+  });
+
+  return {
+    type: NodeType.CallExpression,
+    arguments: args,
+    callee,
+  };
+}
+```
+
+Good stuff! This lets us successfully parse a nested call expression like this one:
+
+```js
+hello()()()
+```
+
+Except it _doesn't_ let us parse a call expression where the callee is another expression like:
+
+```js
+console.log(message)
+```
