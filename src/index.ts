@@ -4,6 +4,7 @@ import { tokenize, token } from "./tokenizer";
 import { parse } from "./parser";
 import type { FunctionDeclaration } from "./parser";
 import { traverse } from "./traverse";
+import { generate } from "./generate";
 
 const input = `function hello(message) {
   console.log(message);
@@ -143,3 +144,15 @@ assert.deepEqual(ast, {
     },
   ],
 });
+
+const output = generate(ast);
+
+console.log("Output:");
+console.log(output);
+
+assert.equal(
+  output,
+  `function print(message) {
+  console.log(message);
+}`
+);
