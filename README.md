@@ -24,3 +24,7 @@ What would the corresponding tokens be?
 - right curly `}`
 
 I tested this against Babel's tokenizer which returns this same output ^
+
+A few issues with my implementation:
+
+- Errors anywhere in the pipeline stops the program completely (in a real compiler, these errors are collected and reported to the user)
