@@ -141,7 +141,7 @@ function parseProgram(tokens: Token[]): Program {
   function consume(type: TokenType) {
     if (check(type)) return advance();
     throw new SyntaxError(
-      `Unexpected token: Expected ${type}, found ${previous().type}`
+      `Unexpected token: Expected ${type}, found ${peek().type}`
     );
   }
 
