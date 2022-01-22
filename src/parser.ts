@@ -166,10 +166,8 @@ function parseProgram(tokens: Token[]): Program {
   // -- Builders --
 
   function statement(): Statement {
-    if (check(TokenType.Keyword)) {
-      if (peek().name === "function") {
-        return declaration();
-      }
+    if (check(TokenType.Function)) {
+      return declaration();
     } else if (check(TokenType.LeftCurly)) {
       return blockStatement();
     }
@@ -181,7 +179,7 @@ function parseProgram(tokens: Token[]): Program {
   }
 
   function functionDeclaration(): FunctionDeclaration {
-    consume(TokenType.Keyword);
+    consume(TokenType.Function);
     const id = identifier();
     consume(TokenType.LeftParen);
     const param = identifier();

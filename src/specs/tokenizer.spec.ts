@@ -7,7 +7,7 @@ describe("tokenizer", () => {
 }`;
 
     expect(tokenize(input)).toEqual([
-      token.keyword("function"),
+      token.function(),
       token.identifier("hello"),
       token.leftParen(),
       token.identifier("message"),
