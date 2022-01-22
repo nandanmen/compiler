@@ -1,5 +1,3 @@
-const keywords = new Set(["function"]);
-
 export function tokenize(input: string): Token[] {
   let start = 0;
   let current = 0;
@@ -12,8 +10,9 @@ export function tokenize(input: string): Token[] {
     const name = input.substring(start, current);
     start = current;
 
-    if (keywords.has(name)) {
-      return token.keyword(name);
+    const builder = keywords.get(name);
+    if (builder) {
+      return builder();
     }
 
     return token.identifier(name);
@@ -45,7 +44,7 @@ export function tokenize(input: string): Token[] {
 // --
 
 export enum TokenType {
-  Keyword = "Keyword",
+  Function = "Function",
   Identifier = "Identifier",
   LeftParen = "LeftParen",
   RightParen = "RightParen",
@@ -61,10 +60,9 @@ export type Token = {
 };
 
 export const token = {
-  keyword(name: string) {
+  function() {
     return {
-      type: TokenType.Keyword,
-      name,
+      type: TokenType.Function,
     };
   },
   identifier(name: string) {
@@ -92,6 +90,8 @@ export const token = {
     return { type: TokenType.Semicolon };
   },
 };
+
+const keywords = new Map([["function", token.function]]);
 
 // --
 

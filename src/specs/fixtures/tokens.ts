@@ -1,7 +1,7 @@
 import { token } from "../../tokenizer";
 
 export const tokens = [
-  token.keyword("function"),
+  token.function(),
   token.identifier("hello"),
   token.leftParen(),
   token.identifier("message"),
