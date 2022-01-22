@@ -23,4 +23,14 @@ describe("tokenizer", () => {
       token.rightCurly(),
     ]);
   });
+
+  it("should tokenize string literals", () => {
+    const input = `print('hello!')`;
+    expect(tokenize(input)).toEqual([
+      token.identifier("print"),
+      token.leftParen(),
+      token.stringLiteral("hello!"),
+      token.rightParen(),
+    ]);
+  });
 });

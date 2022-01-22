@@ -1,14 +1,13 @@
 export function tokenize(input: string): Token[] {
-  let start = 0;
   let current = 0;
   const tokens = [];
 
   function finishIdentifier() {
+    let name = "";
     while (isAlpha(input[current])) {
+      name += input[current];
       current++;
     }
-    const name = input.substring(start, current);
-    start = current;
 
     const builder = keywords.get(name);
     if (builder) {
@@ -18,11 +17,26 @@ export function tokenize(input: string): Token[] {
     return token.identifier(name);
   }
 
+  function finishStringLiteral() {
+    let value = "";
+    while (input[current] && input[current] !== "'") {
+      value += input[current];
+      current++;
+    }
+
+    if (input[current] === "'") {
+      // consume the closing tick
+      current++;
+      return token.stringLiteral(value);
+    }
+
+    throw new Error(`Unterminated string, expected a closing '`);
+  }
+
   while (current < input.length) {
     const currentChar = input[current];
 
     if (isWhitespace(currentChar)) {
-      start++;
       current++;
       continue;
     }
@@ -31,8 +45,11 @@ export function tokenize(input: string): Token[] {
       tokens.push(finishIdentifier());
     } else if (isSingleCharacter(currentChar)) {
       tokens.push(getCharToken(currentChar));
-      start++;
       current++;
+    } else if (currentChar === "'") {
+      // consume the first tick
+      current++;
+      tokens.push(finishStringLiteral());
     } else {
       throw new Error(`Unknown character: ${currentChar}`);
     }
@@ -52,12 +69,21 @@ export enum TokenType {
   RightCurly = "RightCurly",
   Dot = "Dot",
   Semicolon = "Semicolon",
+  StringLiteral = "StringLiteral",
 }
 
-export type Token = {
-  type: TokenType;
-  name?: string;
-};
+export type Token =
+  | {
+      type: TokenType;
+    }
+  | {
+      type: TokenType.Identifier;
+      name: string;
+    }
+  | {
+      type: TokenType.StringLiteral;
+      value: string;
+    };
 
 export const token = {
   function() {
@@ -88,6 +114,12 @@ export const token = {
   },
   semicolon() {
     return { type: TokenType.Semicolon };
+  },
+  stringLiteral(value: string) {
+    return {
+      type: TokenType.StringLiteral,
+      value,
+    };
   },
 };
 
